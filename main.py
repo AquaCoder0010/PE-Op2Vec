@@ -2,6 +2,8 @@ import os
 import pefile
 from capstone import *
 
+from gensim.models import Word2Vec
+
 def find_exe_files(root_dir, exe_limit=None):
     exe_files = []
     for dirpath, _, filenames in os.walk(root_dir):
@@ -45,3 +47,12 @@ if __name__ == "__main__":
     print(f"total unique opcodes : {len(unique_opcodes)}")
     
     print(len(unique_opcodes))
+
+    op2vec_model = Word2Vec(
+        sentences=corpus, 
+        vector_size=100, 
+        window=5, 
+        min_count=1, 
+        sg=1,            
+        workers=4
+    )
