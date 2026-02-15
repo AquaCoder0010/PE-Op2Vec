@@ -56,3 +56,6 @@ if __name__ == "__main__":
         sg=1,            
         workers=4
     )
+
+    op2vec_model.save_model("pe-op2vec.model")
+    
