@@ -9,6 +9,9 @@ from gensim.models.doc2vec import Doc2Vec, TaggedDocument
 
 from tqdm import tqdm 
 
+MODEL_NAME = "pe_malware_d2v.model"
+TEST_DIR = "data/raw"
+
 def find_exe_files(root_dir, exe_limit=None):
     exe_files = []
     for dirpath, _, filenames in tqdm(os.walk(root_dir), desc="Scanning directories"):
@@ -41,9 +44,9 @@ def get_opcodes(file_path):
     except Exception as e:
         return []
 
-if __name__ == "__main__":
+def train():
     WINDOWS_PATH = "/home/aqua/mount-file/temp-sda3/Windows"
-    PE_list = find_exe_files(WINDOWS_PATH, 100)
+    PE_list = find_exe_files(WINDOWS_PATH, 10_000)
     PE_count = len(PE_list)
     
 
@@ -52,10 +55,11 @@ if __name__ == "__main__":
 
     corpus_nt = [get_opcodes(curr_PE) for curr_PE in PE_list if curr_PE]
     unique_opcodes = set(word for app in corpus_nt for word in app)
+    
     print(f"total unique opcodes : {len(unique_opcodes)}")
     print(len(unique_opcodes))
 
-    print("Done >3")
+    print("Done >3")    
 
     op2vec_model = Doc2Vec(
         vector_size=100,
@@ -73,6 +77,22 @@ if __name__ == "__main__":
 
     op2vec_model.train(corpus, total_examples=op2vec_model.corpus_count, epochs=50)
 
-    op2vec_model.save("pe_malware_d2v.model")
+    op2vec_model.save(MODEL_NAME)
     print(f"Training complete in {time.time() - start_time:.2f} seconds.")
 
+
+def test():
+    d2v_model = Doc2Vec.load(MODEL_NAME)
+    vector = d2v_model.infer_vector(["mov", "push", "xor"])
+    
+    files = find_exe_files(os.getcwd() + "/" + TEST_DIR)
+    for pe_file in files:
+        curr_opcodes = get_opcodes(pe_file)
+        curr_vector = d2v_model.infer_vector(curr_opcodes)
+        print(curr_vector)
+
+
+if __name__ == "__main__":
+    #train()
+    #test()
+    pass
