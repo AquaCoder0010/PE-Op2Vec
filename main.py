@@ -1,12 +1,17 @@
+import time
+
 import os
 import pefile
 from capstone import *
 
 from gensim.models import Word2Vec
+from gensim.models.doc2vec import Doc2Vec, TaggedDocument
+
+from tqdm import tqdm 
 
 def find_exe_files(root_dir, exe_limit=None):
     exe_files = []
-    for dirpath, _, filenames in os.walk(root_dir):
+    for dirpath, _, filenames in tqdm(os.walk(root_dir), desc="Scanning directories"):
         for file_ in filenames:
             if file_.lower().endswith('.exe'):
                 full_path = os.path.join(dirpath, file_)
@@ -16,7 +21,7 @@ def find_exe_files(root_dir, exe_limit=None):
     return exe_files
 
 
-def get_opcodes_from_pe(file_path):
+def get_opcodes(file_path):
     try:
         pe = pefile.PE(file_path)
         eop = pe.OPTIONAL_HEADER.AddressOfEntryPoint
@@ -38,24 +43,36 @@ def get_opcodes_from_pe(file_path):
 
 if __name__ == "__main__":
     WINDOWS_PATH = "/home/aqua/mount-file/temp-sda3/Windows"
-    PE_list = find_exe_files(WINDOWS_PATH, 10_000)
-
-    corpus = [get_opcodes_from_pe(curr_PE) for curr_PE in PE_list[:100]]
-    corpus = [app for app in corpus if app]
-
-    unique_opcodes = set(word for app in corpus for word in app)
-    print(f"total unique opcodes : {len(unique_opcodes)}")
+    PE_list = find_exe_files(WINDOWS_PATH, 100)
+    PE_count = len(PE_list)
     
+
+    print("Generating Corpus ... ")
+    corpus = [TaggedDocument(get_opcodes(PE_list[i]), tags=[str(i)]) for i in range(PE_count) if get_opcodes(PE_list[i])]
+
+    corpus_nt = [get_opcodes(curr_PE) for curr_PE in PE_list if curr_PE]
+    unique_opcodes = set(word for app in corpus_nt for word in app)
+    print(f"total unique opcodes : {len(unique_opcodes)}")
     print(len(unique_opcodes))
 
-    op2vec_model = Word2Vec(
-        sentences=corpus, 
-        vector_size=100, 
-        window=5, 
-        min_count=1, 
-        sg=1,            
-        workers=4
+    print("Done >3")
+
+    op2vec_model = Doc2Vec(
+        vector_size=100,
+        window=5,       
+        min_count=1,    
+        workers=4,      
+        dm=0            
     )
 
-    op2vec_model.save_model("pe-op2vec.model")
+    print("Starting to build vocal") 
+    op2vec_model.build_vocab(corpus)
     
+    print("Starting training...")
+    start_time = time.time()
+
+    op2vec_model.train(corpus, total_examples=op2vec_model.corpus_count, epochs=50)
+
+    op2vec_model.save("pe_malware_d2v.model")
+    print(f"Training complete in {time.time() - start_time:.2f} seconds.")
+
