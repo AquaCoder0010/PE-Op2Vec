@@ -5,18 +5,18 @@ from tqdm import tqdm
 from rich.console import Console
 from rich.panel import Panel
 
-# --- Configuration ---
-
 REPO_URL = "https://github.com/iosifache/DikeDataset.git"
 REPO_NAME = "DikeDataset"
 
-# Define source and destination
+WINDOWS_PATH = "/home/aqua/mount-file/temp-sda3/Windows"
+WINDOWS_PE_COUNT = 10_000
+
 BASE_DIR = Path("data" + "/"  + REPO_NAME)
 BENIGN_SRC = BASE_DIR / "file" / "benign"
 MALWARE_SRC = BASE_DIR / "file" / "malware"
 DEST_DIR = Path("data/raw")
 
-console = Console()
+console = None
 
 def run_task():
     console.print(Panel.fit("[bold blue] Downloading DikeDataset >3[/bold blue]", border_style="cyan"))
@@ -44,15 +44,26 @@ def run_task():
         console.print("[red]No files found to copy.[/red]")
         return
 
-    console.print(f"[blue]Copying {len(files_to_copy)} files to {DEST_DIR}...[/blue]")
+    console.print(f"[blue]Copying {len(files_to_copy)} malware files to {DEST_DIR}...[/blue]")
     
     for file_path in tqdm(files_to_copy, desc="Processing Files", unit="file"):
         if file_path.is_file():
             shutil.copy2(file_path, DEST_DIR / file_path.name)
+    
+
+    console.print(f"[blue]Copying  {WINDOWS_PE_COUNT} benign files to {DEST_DIR}...[/blue]")
+    
+    for dirpath, _, filenames in tqdm(os.walk(WINDOWS_PATH), desc="Copying directory"):
+        for file_ in filenames:
+            if file_.lower().endswith('.exe'):
+                full_path = os.path.join(dirpath, file_)
+                shutil.copy2(full_path, DEST_DIR / file_)
 
     console.print(Panel("[bold green]Success![/bold green] All contents moved to data/raw.", border_style="green"))
 
+
 if __name__ == "__main__":
+    console = Console()
     try:
         run_task()
     except KeyboardInterrupt:
