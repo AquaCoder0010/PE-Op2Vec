@@ -21,21 +21,19 @@ def get_opcodes(file_path):
     try:
         pe = pefile.PE(file_path)
         eop = pe.OPTIONAL_HEADER.AddressOfEntryPoint
-        code_section = None
-        for section in pe.sections:
-            if section.contains_rva(eop):
-                code_section = section
-                break
+
+        code_section = next(
+            (s for s in pe.sections if s.contains_rva(eop)),
+            None
+        )
         if not code_section:
             return []
-        
-        # Disassemble the code section
         raw_code = code_section.get_data()
         md = Cs(CS_ARCH_X86, CS_MODE_32)
-        opcodes = [i.mnemonic for i in md.disasm(raw_code, code_section.VirtualAddress)]
-        return opcodes
-    except Exception as e:
+        return [f"{i.mnemonic} {i.op_str}" for i in md.disasm(raw_code, code_section.VirtualAddress)]
+    except Exception:
         return []
+
 
 def process_file(args):
     idx, filepath = args
@@ -43,7 +41,7 @@ def process_file(args):
 
 def train():
     CWD = Path.cwd()
-    DATASET_PATH = CWD / "data" / "raw"
+    DATASET_PATH = CWD / "data" / "train"
 
     print("Generating Corpus ... ")
     
